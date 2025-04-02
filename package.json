@@ -1,0 +1,36 @@
+{
+  "name": "flexbot_be",
+  "module": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "bun run server.js",
+    "dev": "bun --hot run server.js"
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "@langchain/core": "^0.3.43",
+    "@langchain/google-genai": "^0.1.12",
+    "@langchain/mongodb": "^0.1.0",
+    "@langchain/pinecone": "^0.2.0",
+    "@pinecone-database/pinecone": "^5.1.1",
+    "axios": "^1.8.4",
+    "compression": "^1.8.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "langchain": "^0.3.19",
+    "mongodb": "^6.15.0",
+    "morgan": "^1.10.0",
+    "peggy": "^4.2.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
+  }
+}
