@@ -9,6 +9,7 @@ const initLLM = () =>
     modelName: LLM_MODEL_NAME,
     maxOutputTokens: 768,
     temperature: 0.3,
+    streaming: true,
   });
 
 export default initLLM;

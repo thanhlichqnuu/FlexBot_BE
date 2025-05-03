@@ -1,7 +1,8 @@
 import { MongoClient, ServerApiVersion } from "mongodb";
 
-const MONGODB_URI = Bun.env.MONGODB_URI;
+const MONGODB_URI = Bun.env.MONGODB_URI || "";
 const MONGODB_DB_NAME = Bun.env.MONGODB_DB_NAME;
+const MONGODB_COLLECTION_NAME = Bun.env.MONGODB_COLLECTION_NAME || ""
 
 const mongoClient = new MongoClient(MONGODB_URI, {
   serverApi: {
@@ -12,7 +13,7 @@ const mongoClient = new MongoClient(MONGODB_URI, {
 });
 
 const mongoDatabase = mongoClient.db(MONGODB_DB_NAME);
-const mongoCollection = mongoDatabase.collection("conversations");
+const mongoCollection = mongoDatabase.collection(MONGODB_COLLECTION_NAME);
 
 const connectMongoAtlas = async () => {
   try {

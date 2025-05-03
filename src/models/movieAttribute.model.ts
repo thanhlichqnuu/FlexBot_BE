@@ -1,6 +1,6 @@
 import type { AttributeInfo } from "langchain/chains/query_constructor";
 
-const movieAttribute: AttributeInfo[] = [
+const MovieAttribute: AttributeInfo[] = [
   {
     name: "release_year",
     description: "Năm phát hành phim", 
@@ -43,4 +43,4 @@ const movieAttribute: AttributeInfo[] = [
   }
 ];
 
-export default movieAttribute;
+export default MovieAttribute;

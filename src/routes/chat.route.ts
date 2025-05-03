@@ -1,4 +1,5 @@
 import express from "express";
+import type { Application, Request } from "express";
 import {
   checkNotEmpty,
   checkIntegerNumber,
@@ -8,7 +9,7 @@ import {
   createSessionController,
   getAllChatSessionsController,
   getSessionHistoryController,
-  sendMessageController,
+  streamMessageController,
   clearSessionHistoryController,
   deleteSessionController,
   deleteAllChatSessionsController,
@@ -20,10 +21,10 @@ import {
 
 const router = express.Router();
 
-const initChatRoutes = (app) => {
+const initChatRoutes = (app: Application) => {
   router.post(
     "/",
-    validate((req) => {
+    validate((req: Request) => {
       checkNotEmpty(req.body.userId, "User ID");
       checkIntegerNumber(req.body.userId, "User ID");
     }),
@@ -45,12 +46,12 @@ const initChatRoutes = (app) => {
   );
   router.post(
     "/:id",
-    validate((req) => {
+    validate((req: Request) => {
       checkNotEmpty(req.body.message, "Message");
     }),
     authenticateAccessToken,
     authorizeRoles("subscriber"),
-    sendMessageController
+    streamMessageController
   );
   router.delete(
     "/:id/clear",

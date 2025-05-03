@@ -1,4 +1,5 @@
 import express from "express";
+import type { Application } from "express";
 import { syncMoviesController } from "../controller/movies.controller";
 import {
   authenticateAccessToken,
@@ -7,7 +8,7 @@ import {
 
 const router = express.Router();
 
-const initMoviesRoutes = (app) => {
+const initMoviesRoutes = (app: Application) => {
   router.post(
     "/sync",
     authenticateAccessToken,

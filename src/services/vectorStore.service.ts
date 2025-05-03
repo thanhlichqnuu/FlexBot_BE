@@ -1,36 +1,27 @@
-import { PineconeTranslator } from "@langchain/pinecone";
-import { Document } from "@langchain/core/documents";
+import { PineconeStore, PineconeTranslator } from "@langchain/pinecone";
 import { SelfQueryRetriever } from "langchain/retrievers/self_query";
 import initVectorStore from "../config/pinecone.config";
 import initLLM from "../config/llm.config";
 import { initRetrievalDocumentEmbeddings, initRetrievalQueryEmbeddings } from "../config/embedding.config";
-import movieAttribute from "../models/movie.model.attributes";
-import { processMoviesForVectorStore } from "./movie.service";
+import MovieAttribute from "../models/movieAttribute.model";
+import getAllMovieDocuments from "./movie.service";
 
-let vectorStoreForDocument = null;
-let vectorStoreForQuery = null;
+let vectorStoreForDocument: PineconeStore | null = null;
+let vectorStoreForQuery: PineconeStore | null = null;
 
 const syncMoviesToVectorStore = async () => {
   try {
-    const moviesForVectorStore = await processMoviesForVectorStore();
-    
-    const documents = moviesForVectorStore.map(
-      (item) =>
-        new Document({
-          pageContent: item.pageContent,
-          metadata: item.metadata,
-        })
-    );
+    const movieDocuments = await getAllMovieDocuments();
 
-    // const chunkedDocuments = await semanticChunkMovieDocuments(documents);
+    // const chunkedDocuments = await semanticChunkMovieDocuments(movieDocuments);
 
     if (!vectorStoreForDocument) {
       vectorStoreForDocument = await initVectorStore(initRetrievalDocumentEmbeddings);
     }
 
-    await vectorStoreForDocument.addDocuments(documents);
+    await vectorStoreForDocument.addDocuments(movieDocuments);
 
-    return { success: true, count: documents.length };
+    return movieDocuments.length;
   } catch (err) {
     throw err;
   }
@@ -49,7 +40,7 @@ const createSelfQueryRetriever = async () => {
       vectorStore: vectorStoreForDocument,
       documentContents:
         "Thông tin về phim, bao gồm: tên phim, tên gốc phim, nội dung phim, năm phát hành, trạng thái phim, đạo diễn, diễn viên, thời lượng một tập phim, số tập, quốc gia, thể loại.",
-      attributeInfo: movieAttribute,
+      attributeInfo: MovieAttribute,
       structuredQueryTranslator: new PineconeTranslator(),
       searchParams: {
         k: 5,
@@ -62,54 +53,55 @@ const createSelfQueryRetriever = async () => {
   }
 };
 
-const queryVectorStore = async (query, limit = 5) => {
+const searchSimilarMovies = async (query: string, limit: number = 5) => {
   try {
     if (!vectorStoreForQuery) {
       vectorStoreForQuery = await initVectorStore(initRetrievalQueryEmbeddings);
     }
 
-    const results = await vectorStoreForQuery.similaritySearch(query, limit);
-    return results || [];
+    const result = await vectorStoreForQuery.similaritySearch(query, limit);
+    return result || [];
   } catch (err) {
-    return []; 
+    throw err
   }
 };
 
-const querySelfQueryRetriever = async (query) => {
+const searchMoviesWithSelfQuery = async (query: string) => {
   try {
     const retriever = await createSelfQueryRetriever();
-    const results = await retriever.invoke(query)
-    return results || [];
+    const result = await retriever.invoke(query)
+    return result || [];
   } catch (err) {
-    return []; 
+    throw err 
   }
 };
 
-const queryCombined = async (query) => {
+const queryCombinedResult = async (query: string) => {
   try {
-    const selfQueryResults = await querySelfQueryRetriever(query);
-    const similaritySearchResults = await queryVectorStore(query);
+    const selfQueryResult = await searchMoviesWithSelfQuery(query);
+    const similaritySearchResult = await searchSimilarMovies(query);
 
-    const combinedResults = [
-      ...selfQueryResults,
-      ...similaritySearchResults
+    const combinedResult = [
+      ...selfQueryResult,
+      ...similaritySearchResult
     ];
 
-    const uniqueResults = Array.from(
+    const uniqueResult = Array.from(
       new Map(
-        combinedResults.map(doc => [doc.pageContent, doc])
+        combinedResult.map(document => [document.pageContent, document])
       ).values()
     );
 
-    return uniqueResults;
+    return uniqueResult;
   } catch (err) {
-    return []; 
+    throw err
   }
 };
 
 export {
-  initVectorStore,
   syncMoviesToVectorStore,
-  createSelfQueryRetriever,
-  queryCombined,
+  searchSimilarMovies,
+  searchMoviesWithSelfQuery,
+  queryCombinedResult,
 };
+ 

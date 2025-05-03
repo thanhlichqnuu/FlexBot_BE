@@ -4,10 +4,9 @@ import initChatRoutes from "./src/routes/chat.route";
 import initMoviesRoutes from "./src/routes/movies.route";
 import helmet from "helmet";
 import compression from "compression";
-import morgan from "morgan";
 import { connectMongoAtlas } from "./src/config/mongodb.config";
 
-const PORT = Bun.env.PORT;
+const PORT = Number(Bun.env.PORT);
 const app = express();
 
 app.use(cors());
@@ -25,7 +24,6 @@ app.use(
     },
   })
 );
-app.use(morgan("dev"));
 
 initChatRoutes(app);
 initMoviesRoutes(app);
@@ -36,6 +34,6 @@ connectMongoAtlas()
       console.log(`Server đang chạy trên cổng ${PORT}`);
     });
   })
-  .catch((err) => {
+  .catch((err: unknown) => {
     process.exit(1);
   });

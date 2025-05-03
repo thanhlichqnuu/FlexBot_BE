@@ -1,12 +1,14 @@
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { RunnableSequence } from "@langchain/core/runnables";
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import {
   routePrompt,
   reWriteQueryPrompt,
+  extractPersonNamePrompt,
   generateAnswerPrompt,
 } from "./prompt.util";
 
-const createClassificationChain = (llm) => {
+const createClassificationChain = (llm: ChatGoogleGenerativeAI) => {
   return RunnableSequence.from([
     routePrompt,
     llm,
@@ -14,7 +16,7 @@ const createClassificationChain = (llm) => {
   ]);
 };
 
-const createRewriteQueryChain = (llm) => {
+const createRewriteQueryChain = (llm: ChatGoogleGenerativeAI) => {
   return RunnableSequence.from([
     reWriteQueryPrompt,
     llm,
@@ -22,7 +24,15 @@ const createRewriteQueryChain = (llm) => {
   ]);
 };
 
-const createGenerateAnswerChain = (llm) => {
+const createExtractPersonNameChain = (llm: ChatGoogleGenerativeAI) => {
+  return RunnableSequence.from([
+    extractPersonNamePrompt,
+    llm,
+    new StringOutputParser()
+  ]);
+};
+
+const createStreamingAnswerChain = (llm: ChatGoogleGenerativeAI) => {
   return RunnableSequence.from([
     generateAnswerPrompt,
     llm,
@@ -33,5 +43,6 @@ const createGenerateAnswerChain = (llm) => {
 export {
   createClassificationChain,
   createRewriteQueryChain,
-  createGenerateAnswerChain,
+  createExtractPersonNameChain,
+  createStreamingAnswerChain
 };
