@@ -1,6 +1,6 @@
 {
   "name": "flexbot_be",
-  "module": "server.js",
+  "module": "server.ts",
   "type": "module",
   "scripts": {
     "start": "bun run server.js",
