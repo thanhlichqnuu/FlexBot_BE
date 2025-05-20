@@ -49,7 +49,9 @@ const routePrompt = ChatPromptTemplate.fromMessages([
 const reWriteQueryPrompt = ChatPromptTemplate.fromMessages([
   [
     "system",
-    `Bạn là một chuyên gia viết lại câu hỏi (question), giúp chuyển đổi câu hỏi của người dùng thành một phiên bản tốt hơn, tối ưu cho việc truy xuất thông tin từ vector store.
+     `Bạn là một chuyên gia viết lại câu hỏi (question), giúp chuyển đổi câu hỏi của người dùng thành một phiên bản tối ưu cho hai mục đích: (1) truy xuất thông tin từ vector store về phim hoặc (2) tìm kiếm thông tin trên web.
+
+    Khi mode là "VECTOR_STORE", bạn sẽ tối ưu hóa câu hỏi cho truy vấn vector store:
 
     Lưu ý quan trọng:
       - Chỉ viết lại các câu hỏi về thông tin phim trong cơ sở dữ liệu (như đạo diễn của phim cụ thể, diễn viên trong phim cụ thể, danh sách diễn viên trong phim cụ thể, nhân vật trong phim cụ thể, danh sách nhân vật trong phim cụ thể)
@@ -63,7 +65,17 @@ const reWriteQueryPrompt = ChatPromptTemplate.fromMessages([
     - Nếu câu hỏi ban đầu không liên quan đến phim, hãy giữ nguyên câu hỏi gốc.
     - Nếu câu hỏi quá mơ hồ và ngay cả khi kết hợp lịch sử hội thoại vẫn không thể tạo ra một truy vấn tìm kiếm phim rõ ràng, hãy giữ nguyên câu hỏi gốc. Bước xử lý tiếp theo sẽ quyết định cách phản hồi (ví dụ: yêu cầu người dùng làm rõ). Mục tiêu chính của bạn là tạo query tìm kiếm tốt nhất có thể.
 
+    Khi mode là "WEB_SEARCH", bạn sẽ tối ưu hóa câu hỏi cho tìm kiếm web:
+
+    - Xác định ý chính và từ khóa quan trọng trong câu hỏi
+    - Loại bỏ các từ không cần thiết và ngữ cảnh thừa
+    - Thêm các từ khóa cần thiết để làm rõ ý nghĩa
+    - Đảm bảo câu hỏi được viết lại đủ ngắn gọn nhưng vẫn đầy đủ thông tin
+    - Tạo truy vấn phù hợp để tìm kiếm thông tin chính xác và cập nhật từ web
+
     Ví dụ:
+
+     # Ví dụ cho VECTOR_STORE mode 
     - Người dùng: "Gợi ý giúp tôi 4 phim thuộc thể loại hành động" → "Đề xuất 4 phim thuộc thể loại hành động."
     - Người dùng: "Còn phim nào khác không?" → "Đề xuất thêm phim tương tự với các [phim trước đó]."
     - Người dùng: "Phim của Christopher Nolan?" → "Đề xuất phim do Christopher Nolan đạo diễn."
@@ -72,10 +84,15 @@ const reWriteQueryPrompt = ChatPromptTemplate.fromMessages([
     - Người dùng: "Tìm phim kể về một vị thần huỷ diệt thức tỉnh và nhân vật chính sẽ chống lại vị thần này" -> "Tìm phim có nội dung (description) về một vị thần huỷ diệt thức tỉnh và nhân vật chính sẽ chống lại vị thần này"
     - Người dùng: "Phim nói về siêu anh hùng bảo vệ trái đất" -> "Tìm phim có nội dung (description) về siêu anh hùng bảo vệ trái đất."
     - Người dùng: "Tìm phim có yếu tố du hành thời gian" -> "Trong phần nội dung phim (description), tìm phim có yếu tố về du hành thời gian."
-    - Người dùng: "Xin chào" -> "Xin chào" (giữ nguyên vì không liên quan đến phim)`,
+    - Người dùng: "Xin chào" -> "Xin chào" (giữ nguyên vì không liên quan đến phim)
+    
+    # Ví dụ cho WEB_SEARCH mode 
+    - "Phim nào hay nhất của đạo diễn Christopher Nolan?" → "Phim hay nhất Christopher Nolan đạo diễn"
+    - "Cho tôi biết tại sao trái đất quay quanh mặt trời?" → "Tại sao trái đất quay quanh mặt trời"
+    - "Phim thắng giải Oscar năm 2023 là phim nào?" → "Phim thắng giải Oscar 2023"`,
   ],
   ["placeholder", "{history}"],
-  ["human", "{question}"],
+  ["human", "{mode}: {question}"],
 ]);
 
 const extractPersonNamePrompt = ChatPromptTemplate.fromMessages([
@@ -84,8 +101,8 @@ const extractPersonNamePrompt = ChatPromptTemplate.fromMessages([
     `Bạn là chuyên gia trích xuất tên người hoặc nhân vật trong lĩnh vực phim ảnh.
 
     Nhiệm vụ của bạn là:
-    - Trích xuất TÊN ĐẦY ĐỦ của người hoặc nhân vật (đạo diễn, diễn viên, nhân vật phim) từ câu hỏi hiện tại (question) và ngữ cảnh hội thoại (history).
-    - Trả về CHÍNH XÁC một tên người hoặc nhân vật duy nhất, không kèm theo bất kỳ giải thích nào.
+    - Trích xuất tên đầy đủ của người hoặc nhân vật (đạo diễn, diễn viên, nhân vật phim) từ câu hỏi hiện tại (question) và ngữ cảnh hội thoại (history).
+    - Trả về chính xác một tên người hoặc nhân vật duy nhất, không kèm theo bất kỳ giải thích nào.
     - Trả về **none** nếu không tìm thấy tên người hoặc nhân vật nào liên quan.
 
     Quy tắc trích xuất tên: 
@@ -105,6 +122,79 @@ const extractPersonNamePrompt = ChatPromptTemplate.fromMessages([
       ],
   ["placeholder", "{history}"],
   ["human", "{question}"],
+]);
+
+const documentEvaluatorPrompt = ChatPromptTemplate.fromMessages([
+  [
+    "system",
+    `Đánh giá mức độ liên quan của tài liệu với câu hỏi.
+    
+    Nhiệm vụ của bạn là phân tích và trả lời một trong các giá trị sau:
+    
+    - "irrelevant": Tài liệu hoàn toàn không liên quan hoặc quá sơ sài
+    - "relevant": Tài liệu có liên quan, chứa thông tin hữu ích nhưng chưa đầy đủ
+    - "direct_answer": Tài liệu chứa thông tin đủ để trả lời câu hỏi
+    
+    Lưu ý quan trọng:
+    1. Với câu hỏi tổng quát (như "ai là X", "thông tin về Y", ...), thông tin tổng quan, tiểu sử có thể được coi là "direct_answer" nếu cung cấp đủ thông tin căn bản.
+    2. Với câu hỏi cụ thể (hỏi sự kiện, chi tiết, thời điểm, ...), chỉ đánh giá là "direct_answer" khi tài liệu có thông tin cụ thể về điều được hỏi.
+    
+    Ví dụ:
+    
+    # Ví dụ về câu hỏi cụ thể:
+    
+    Câu hỏi: "Nhân vật Tony Stark đã tạo ra bộ giáp Iron Man đầu tiên ở đâu?"
+    Tài liệu: "Tony Stark là một nhân vật hư cấu trong vũ trụ Marvel, do Robert Downey Jr. thủ vai trong các bộ phim của MCU. Anh là một thiên tài, tỷ phú và nhà sáng chế."
+    Đánh giá: "irrelevant" (Tài liệu không đề cập đến việc tạo ra bộ giáp Iron Man đầu tiên)
+    
+    Câu hỏi: "Nhân vật Tony Stark đã tạo ra bộ giáp Iron Man đầu tiên ở đâu?"
+    Tài liệu: "Iron Man là bộ giáp công nghệ cao do Tony Stark chế tạo. Bộ giáp này được trang bị nhiều vũ khí tiên tiến và có khả năng bay. Stark đã liên tục cải tiến bộ giáp qua nhiều phiên bản."
+    Đánh giá: "relevant" (Có đề cập đến bộ giáp Iron Man nhưng không nói cụ thể nơi tạo ra nó đầu tiên)
+    
+    Câu hỏi: "Nhân vật Tony Stark đã tạo ra bộ giáp Iron Man đầu tiên ở đâu?"
+    Tài liệu: "Trong phim Iron Man (2008), Tony Stark bị khủng bố bắt cóc và giam giữ trong một hang động ở Afghanistan. Tại đây, với sự giúp đỡ của bác sĩ Yinsen, anh đã chế tạo bộ giáp Iron Man Mark I từ những phế liệu vũ khí để trốn thoát khỏi nơi giam cầm."
+    Đánh giá: "direct_answer" (Trả lời đầy đủ và cụ thể câu hỏi với thông tin chi tiết về địa điểm)
+    
+    Câu hỏi: "Phim nào đánh dấu vai diễn đầu tiên của Heath Ledger trong vai Joker?"
+    Tài liệu: "Heath Ledger (1979-2008) là một diễn viên người Úc nổi tiếng với nhiều vai diễn ấn tượng trong sự nghiệp ngắn ngủi của mình."
+    Đánh giá: "irrelevant" (Không đề cập gì đến vai Joker của Heath Ledger)
+    
+    Câu hỏi: "Phim nào đánh dấu vai diễn đầu tiên của Heath Ledger trong vai Joker?"
+    Tài liệu: "Heath Ledger đã thủ vai Joker - kẻ thù không đội trời chung của Batman. Anh đã nhận được giải Oscar hạng mục Nam diễn viên phụ xuất sắc nhất cho vai diễn này sau khi qua đời."
+    Đánh giá: "relevant" (Có đề cập đến việc Heath Ledger đóng vai Joker nhưng không nói rõ trong phim nào)
+    
+    Câu hỏi: "Phim nào đánh dấu vai diễn đầu tiên của Heath Ledger trong vai Joker?"
+    Tài liệu: "The Dark Knight (2008), phần thứ hai trong bộ ba phim Batman của đạo diễn Christopher Nolan, là bộ phim đầu tiên và duy nhất Heath Ledger thủ vai nhân vật phản diện Joker. Màn trình diễn xuất sắc của anh đã mang về giải Oscar hạng mục Nam diễn viên phụ xuất sắc nhất năm 2009."
+    Đánh giá: "direct_answer" (Cung cấp thông tin chính xác về bộ phim đầu tiên Ledger đóng vai Joker)
+    
+    # Ví dụ về câu hỏi tổng quát:
+    
+    Câu hỏi: "Christopher Nolan là ai?"
+    Tài liệu: "Inception là một bộ phim khoa học viễn tưởng ra mắt năm 2010 với sự tham gia của Leonardo DiCaprio."
+    Đánh giá: "irrelevant" (Không nói về Christopher Nolan là ai)
+    
+    Câu hỏi: "Christopher Nolan là ai?"
+    Tài liệu: "Christopher Nolan là đạo diễn của nhiều bộ phim nổi tiếng như Inception, Interstellar và loạt phim Batman Dark Knight."
+    Đánh giá: "relevant" (Có thông tin liên quan nhưng quá ngắn gọn, thiếu nhiều thông tin quan trọng về con người và sự nghiệp)
+    
+    Câu hỏi: "Christopher Nolan là ai?"
+    Tài liệu: "Sir Christopher Edward Nolan là một đạo diễn người Anh-Mỹ sinh năm 1970. Nổi tiếng với các bộ phim có cốt truyện phức tạp, ông được coi là một trong những đạo diễn hàng đầu thế kỷ 21. Các phim của Nolan đã thu về hơn 6.6 tỷ đô la toàn cầu. Ông đã nhận được nhiều giải thưởng danh giá bao gồm hai giải Oscar. Các tác phẩm nổi tiếng của ông bao gồm Memento, loạt phim Dark Knight, Inception, Interstellar, Dunkirk và Oppenheimer."
+    Đánh giá: "direct_answer" (Cung cấp đầy đủ thông tin cơ bản về Nolan, đủ để trả lời câu hỏi tổng quát)
+    
+    Câu hỏi: "Nhân vật Thanos trong MCU là ai?"
+    Tài liệu: "Avengers: Infinity War là một bộ phim siêu anh hùng của Marvel Studios ra mắt năm 2018."
+    Đánh giá: "irrelevant" (Không giới thiệu Thanos là ai)
+    
+    Câu hỏi: "Nhân vật Thanos trong MCU là ai?"
+    Tài liệu: "Thanos là nhân vật phản diện chính trong Avengers: Infinity War và Avengers: Endgame. Nhân vật này do Josh Brolin thủ vai."
+    Đánh giá: "relevant" (Có đề cập đến Thanos nhưng giải thích quá sơ sài về nhân vật)
+    
+    Câu hỏi: "Nhân vật Thanos trong MCU là ai?"
+    Tài liệu: "Thanos là nhân vật phản diện chính trong Vũ trụ Điện ảnh Marvel (MCU), do Josh Brolin thủ vai. Anh là một chiến binh Titan với mục tiêu thu thập đủ 6 Viên đá Vô cực để xóa sổ một nửa sự sống trong vũ trụ, với niềm tin rằng điều này sẽ giải quyết vấn đề về tài nguyên khan hiếm. Thanos đóng vai trò quan trọng trong các phim Guardians of the Galaxy, Avengers: Infinity War và Avengers: Endgame. Nhân vật này được đánh giá là một trong những phản diện thành công nhất của MCU nhờ động cơ phức tạp và chiều sâu tâm lý."
+    Đánh giá: "direct_answer" (Giải thích đầy đủ và chi tiết về nhân vật Thanos trong MCU)
+    `
+  ],
+  ["human", "Câu hỏi: {question}\n\nTài liệu: {document}"],
 ]);
 
 const generateAnswerPrompt = ChatPromptTemplate.fromMessages([
@@ -253,4 +343,4 @@ const generateAnswerPrompt = ChatPromptTemplate.fromMessages([
   ["human", "Câu hỏi: {question} \n\n Tài liệu: {context}"],
 ]);
 
-export { routePrompt, reWriteQueryPrompt, extractPersonNamePrompt, generateAnswerPrompt };
+export { routePrompt, reWriteQueryPrompt, extractPersonNamePrompt, documentEvaluatorPrompt, generateAnswerPrompt };

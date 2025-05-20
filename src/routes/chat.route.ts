@@ -28,8 +28,8 @@ const initChatRoutes = (app: Application) => {
       checkNotEmpty(req.body.userId, "User ID");
       checkIntegerNumber(req.body.userId, "User ID");
     }),
-    authenticateAccessToken,
-    authorizeRoles("subscriber"),
+    // authenticateAccessToken,
+    // authorizeRoles("subscriber"),
     createSessionController
   );
   router.get(
@@ -49,8 +49,8 @@ const initChatRoutes = (app: Application) => {
     validate((req: Request) => {
       checkNotEmpty(req.body.message, "Message");
     }),
-    authenticateAccessToken,
-    authorizeRoles("subscriber"),
+    // authenticateAccessToken,
+    // authorizeRoles("subscriber"),
     streamMessageController
   );
   router.delete(

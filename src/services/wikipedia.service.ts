@@ -5,16 +5,15 @@ const WIKI_TITLE_API = Bun.env.WIKI_TITLE_API || ""
 
 const fetchPersonName = async (personName: string) => {
   try {
-    const {data} = await axios.get(WIKI_TITLE_API, {
-      params: {
-        action: 'query',
-        list: 'search',
-        srsearch: personName,
-        format: 'json',
-        utf8: 1,
-        origin: '*'
-      }
-    });
+    const params = {
+      action: 'query',
+      list: 'search',
+      srsearch: personName,
+      format: 'json',
+      utf8: 1,
+      origin: '*'
+    }
+    const {data} = await axios.get(WIKI_TITLE_API, {params});
     
     if (data.query?.search?.length > 0) {
       return data.query.search[0].title;

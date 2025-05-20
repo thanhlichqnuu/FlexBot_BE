@@ -7,7 +7,7 @@ const initLLM = () =>
   new ChatGoogleGenerativeAI({
     apiKey: GOOGLE_API_KEY,
     modelName: LLM_MODEL_NAME,
-    maxOutputTokens: 768,
+    maxOutputTokens: 1500,
     temperature: 0.3,
     streaming: true,
   });

@@ -1,22 +1,23 @@
 import { PineconeStore, PineconeTranslator } from "@langchain/pinecone";
 import { SelfQueryRetriever } from "langchain/retrievers/self_query";
+import { TaskType } from "@google/generative-ai";
 import initVectorStore from "../config/pinecone.config";
 import initLLM from "../config/llm.config";
-import { initRetrievalDocumentEmbeddings, initRetrievalQueryEmbeddings } from "../config/embedding.config";
+import initEmbeddingModel from "../config/embedding.config";
 import MovieAttribute from "../models/movieAttribute.model";
 import getAllMovieDocuments from "./movie.service";
 
 let vectorStoreForDocument: PineconeStore | null = null;
-let vectorStoreForQuery: PineconeStore | null = null;
+let vectorStoreForSemanticSimilarity: PineconeStore | null = null;
+
+const initRetrievalDocumentEmbedding = () => initEmbeddingModel(TaskType.RETRIEVAL_DOCUMENT);
+const initRetrievalQueryEmbedding = () => initEmbeddingModel(TaskType.RETRIEVAL_QUERY);
 
 const syncMoviesToVectorStore = async () => {
   try {
     const movieDocuments = await getAllMovieDocuments();
-
-    // const chunkedDocuments = await semanticChunkMovieDocuments(movieDocuments);
-
     if (!vectorStoreForDocument) {
-      vectorStoreForDocument = await initVectorStore(initRetrievalDocumentEmbeddings);
+      vectorStoreForDocument = await initVectorStore(initRetrievalDocumentEmbedding);
     }
 
     await vectorStoreForDocument.addDocuments(movieDocuments);
@@ -30,7 +31,7 @@ const syncMoviesToVectorStore = async () => {
 const createSelfQueryRetriever = async () => {
   try {
     if (!vectorStoreForDocument) {
-      vectorStoreForDocument = await initVectorStore(initRetrievalDocumentEmbeddings);
+      vectorStoreForDocument = await initVectorStore(initRetrievalDocumentEmbedding);
     }
 
     const llm = initLLM();
@@ -55,11 +56,11 @@ const createSelfQueryRetriever = async () => {
 
 const searchSimilarMovies = async (query: string, limit: number = 5) => {
   try {
-    if (!vectorStoreForQuery) {
-      vectorStoreForQuery = await initVectorStore(initRetrievalQueryEmbeddings);
+    if (!vectorStoreForSemanticSimilarity) {
+      vectorStoreForSemanticSimilarity = await initVectorStore(initRetrievalQueryEmbedding);
     }
 
-    const result = await vectorStoreForQuery.similaritySearch(query, limit);
+    const result = await vectorStoreForSemanticSimilarity.similaritySearch(query, limit);
     return result || [];
   } catch (err) {
     throw err
@@ -69,10 +70,10 @@ const searchSimilarMovies = async (query: string, limit: number = 5) => {
 const searchMoviesWithSelfQuery = async (query: string) => {
   try {
     const retriever = await createSelfQueryRetriever();
-    const result = await retriever.invoke(query)
+    const result = await retriever.invoke(query);
     return result || [];
   } catch (err) {
-    throw err 
+    throw err
   }
 };
 
@@ -104,4 +105,3 @@ export {
   searchMoviesWithSelfQuery,
   queryCombinedResult,
 };
- 

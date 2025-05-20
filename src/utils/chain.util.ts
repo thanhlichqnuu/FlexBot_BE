@@ -5,6 +5,7 @@ import {
   routePrompt,
   reWriteQueryPrompt,
   extractPersonNamePrompt,
+  documentEvaluatorPrompt,
   generateAnswerPrompt,
 } from "./prompt.util";
 
@@ -32,6 +33,14 @@ const createExtractPersonNameChain = (llm: ChatGoogleGenerativeAI) => {
   ]);
 };
 
+const createDocumentEvaluatorChain = (llm: ChatGoogleGenerativeAI) => {
+  return RunnableSequence.from([
+    documentEvaluatorPrompt,
+    llm,
+    new StringOutputParser(),
+  ]);
+};
+
 const createStreamingAnswerChain = (llm: ChatGoogleGenerativeAI) => {
   return RunnableSequence.from([
     generateAnswerPrompt,
@@ -44,5 +53,6 @@ export {
   createClassificationChain,
   createRewriteQueryChain,
   createExtractPersonNameChain,
+  createDocumentEvaluatorChain,
   createStreamingAnswerChain
 };
