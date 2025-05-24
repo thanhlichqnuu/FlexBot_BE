@@ -130,8 +130,6 @@ const generateAnswerWithStreaming = async (question: string, context: string, se
       res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
     }
 
-    console.log("Full response:", fullResponse);
-
     await addMessageToHistory(sessionId, { role: "user", content: question });
     await addMessageToHistory(sessionId, { role: "assistant", content: fullResponse });
 
@@ -144,12 +142,10 @@ const generateAnswerWithStreaming = async (question: string, context: string, se
 const processUserQueryWithStreaming = async (question: string, sessionId: string, res: Response) => {
   try {
     const queryType = await classifyUserQuery(question, sessionId);
-    console.log("Query type:", queryType);
     if (queryType === "casual_convo") {
       await generateAnswerWithStreaming(question, "", sessionId, res);
     } else if (queryType === "vector_store") {
       const rewrittenQuery = await rewriteQuery(question, sessionId, "vector_search");
-      console.log("Rewritten query for vector search:", rewrittenQuery);
 
       const docs = await queryCombinedResult(rewrittenQuery);
       let context = "";
@@ -163,13 +159,10 @@ const processUserQueryWithStreaming = async (question: string, sessionId: string
         rewrittenQuery,
         docs
       );
-      console.log("Relevant documents:", relevantDocs, "Needs web search:", needsWebSearch);
 
       if (needsWebSearch) {
         const movieSummaries = relevantDocs
           .map(doc => `${doc.metadata.name} (${doc.metadata.release_year} - ${doc.metadata.country})`);
-          
-        console.log("Document summary for web search:", movieSummaries);
 
         const movieQueries = movieSummaries.map(async (movieSummary) => {
           const movieQuery = await rewriteQuery(
@@ -178,8 +171,6 @@ const processUserQueryWithStreaming = async (question: string, sessionId: string
             "context_search",
             movieSummary
           );
-
-          console.log(`Web search query for ${movieSummary}:`, movieQuery);
 
           const result = await searchWeb(movieQuery);
 
@@ -198,8 +189,6 @@ const processUserQueryWithStreaming = async (question: string, sessionId: string
             result.status === 'fulfilled' && result.value !== null)
           .map(result => result.value as Document);
 
-        console.log(`Found web results for ${webResults.length} movies`);
-
         const allDocs = [...relevantDocs, ...webResults];
 
         if (allDocs.length > 0) {
@@ -215,9 +204,7 @@ const processUserQueryWithStreaming = async (question: string, sessionId: string
     }
     else if (queryType === "web_context") {
       const webSearchQuery = await rewriteQuery(question, sessionId, "web_search");
-      console.log("Web search query:", webSearchQuery);
       const webResult = await searchWeb(webSearchQuery);
-      console.log("Web search result:", webResult);
 
       let context = "";
 

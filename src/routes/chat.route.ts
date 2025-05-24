@@ -28,20 +28,20 @@ const initChatRoutes = (app: Application) => {
       checkNotEmpty(req.body.userId, "User ID");
       checkIntegerNumber(req.body.userId, "User ID");
     }),
-    // authenticateAccessToken,
-    // authorizeRoles(["subscriber"], ["Standard", "Premium"]),
+    authenticateAccessToken,
+    authorizeRoles(["subscriber"], ["Standard", "Premium"]),
     createSessionController
   );
   router.get(
     "/users/:id",
     authenticateAccessToken,
-    authorizeRoles(["subscriber"]),
+    authorizeRoles(["subscriber"], ["Standard", "Premium"]),
     getAllChatSessionsController
   );
   router.get(
     "/:id",
     authenticateAccessToken,
-    authorizeRoles(["subscriber"]),
+    authorizeRoles(["subscriber"], ["Standard", "Premium"]),
     getSessionHistoryController
   );
   router.post(
@@ -49,26 +49,26 @@ const initChatRoutes = (app: Application) => {
     validate((req: Request) => {
       checkNotEmpty(req.body.message, "Message");
     }),
-    // authenticateAccessToken,
-    // authorizeRoles(["subscriber"], ["Standard", "Premium"]),
+    authenticateAccessToken,
+    authorizeRoles(["subscriber"], ["Standard", "Premium"]),
     streamMessageController
   );
   router.delete(
     "/:id/clear",
     authenticateAccessToken,
-    // authorizeRoles(["subscriber"], ["Standard", "Premium"]),
+    authorizeRoles(["subscriber"], ["Standard", "Premium"]),
     clearSessionHistoryController
   );
   router.delete(
     "/:id",
     authenticateAccessToken,
-    // authorizeRoles(["subscriber"], ["Standard", "Premium"]),
+    authorizeRoles(["subscriber"], ["Standard", "Premium"]),
     deleteSessionController
   );
   router.delete(
     "/users/:id",
     authenticateAccessToken,
-    // authorizeRoles(["subscriber"], ["Standard", "Premium"]),
+    authorizeRoles(["subscriber"], ["Standard", "Premium"]),
     deleteAllChatSessionsController
   );
   return app.use("/api/v1/sessions", router);
