@@ -3,12 +3,10 @@ import initLLM from "../config/llm.config";
 import {
   createClassificationChain,
   createRewriteQueryChain,
-  createExtractPersonNameChain,
   createDocumentEvaluatorChain,
   createStreamingAnswerChain,
 } from "../utils/chain.util";
 import type { Document } from "langchain/document";
-import getPersonSummary from "./wikipedia.service";
 
 import {
   getChatHistory,
@@ -31,25 +29,6 @@ const formatChatHistory = async (history: Message[]) => {
     .join("\n");
 };
 
-const extractPersonName = async (question: string, sessionId: string) => {
-  try {
-    const llm = initLLM();
-    const extractPersonNameChain = createExtractPersonNameChain(llm);
-
-    const history = await getChatHistory(sessionId);
-    const historyText = await formatChatHistory(history);
-
-    const result = await extractPersonNameChain.invoke({
-      history: historyText,
-      question: question,
-    });
-
-    return result === "none" ? null : result;
-  } catch (err) {
-    throw err
-  }
-};
-
 const classifyUserQuery = async (question: string, sessionId: string) => {
   try {
     const llm = initLLM();
@@ -63,11 +42,11 @@ const classifyUserQuery = async (question: string, sessionId: string) => {
       question: question,
     });
 
-    if (result.includes("vectorstore")) {
-      return "vectorstore";
+    if (result.includes("vector_store")) {
+      return "vector_store";
     }
-    if (result.includes("person_info")) {
-      return "person_info";
+    if (result.includes("web_context")) {
+      return "web_context";
     }
     return "casual_convo";
   } catch (err) {
@@ -75,7 +54,7 @@ const classifyUserQuery = async (question: string, sessionId: string) => {
   }
 };
 
-const rewriteQuery = async (question: string, sessionId: string, mode: string) => {
+const rewriteQuery = async (question: string, sessionId: string, mode: string, documentInfo?: string) => {
   try {
     const llm = initLLM();
     const rewriteChain = createRewriteQueryChain(llm);
@@ -86,7 +65,8 @@ const rewriteQuery = async (question: string, sessionId: string, mode: string) =
     const result = await rewriteChain.invoke({
       history: historyText,
       question: question,
-      mode: mode
+      mode: mode,
+      documentInfo: documentInfo || "",
     });
 
     return result || question;
@@ -100,37 +80,45 @@ const evaluateDocuments = async (question: string, documents: Document[]) => {
     const llm = initLLM();
     const evaluatorChain = createDocumentEvaluatorChain(llm);
 
-    const relevantDocs: Document[] = [];
-    let hasDirectAnswer = false;
-
-    for (const doc of documents) {
+    const evaluationPromises = documents.map(async (doc) => {
       const result = await evaluatorChain.invoke({
         question: question,
         document: doc.pageContent,
       });
+      return { doc, result };
+    });
 
-      if (result.includes("direct_answer")) {
-        hasDirectAnswer = true;
-      }
+    const results = await Promise.allSettled(evaluationPromises);
 
-      if (result.includes("relevant") || result.includes("direct_answer")) {
-        relevantDocs.push(doc);
+    const relevantDocs: Document[] = [];
+    let hasDirectAnswer = false;
+
+    results.forEach(promiseResult => {
+      if (promiseResult.status === "fulfilled" && 'result' in promiseResult.value) {
+        const { doc, result } = promiseResult.value;
+
+        if (result?.includes("direct_answer")) {
+          hasDirectAnswer = true;
+        }
+
+        if (result?.includes("relevant") || result?.includes("direct_answer")) {
+          relevantDocs.push(doc);
+        }
       }
-    }
+    });
 
     const needsWebSearch = !hasDirectAnswer;
-
     return { relevantDocs, needsWebSearch };
   } catch (err) {
     throw err;
   }
-}
+};
 
 const generateAnswerWithStreaming = async (question: string, context: string, sessionId: string, res: Response) => {
   try {
-    let fullResponse = '';
     const llm = initLLM();
     const streamingChain = createStreamingAnswerChain(llm);
+    let fullResponse = '';
 
     const stream = await streamingChain.stream({
       question: question,
@@ -155,30 +143,19 @@ const generateAnswerWithStreaming = async (question: string, context: string, se
 
 const processUserQueryWithStreaming = async (question: string, sessionId: string, res: Response) => {
   try {
-    console.log("question", question);
     const queryType = await classifyUserQuery(question, sessionId);
-
-    console.log("queryType", queryType);
-
+    console.log("Query type:", queryType);
     if (queryType === "casual_convo") {
       await generateAnswerWithStreaming(question, "", sessionId, res);
-    } else if (queryType === "vectorstore") {
-      const rewrittenQuery = await rewriteQuery(question, sessionId, "VECTOR_STORE");
-      console.log("rewrittenQuery", rewrittenQuery);
+    } else if (queryType === "vector_store") {
+      const rewrittenQuery = await rewriteQuery(question, sessionId, "vector_search");
+      console.log("Rewritten query for vector search:", rewrittenQuery);
+
       const docs = await queryCombinedResult(rewrittenQuery);
       let context = "";
 
       if (docs.length === 0) {
-        const webSearchQuery = await rewriteQuery(question, sessionId, "WEB_SEARCH");
-        const webResult = await searchWeb(webSearchQuery);
-        console.log("webSearchQuery", webSearchQuery);
-        console.log("webResult", webResult);
-
-        if (webResult) {
-          context = webResult.pageContent;
-        }
-
-        await generateAnswerWithStreaming(rewrittenQuery, context, sessionId, res);
+        await generateAnswerWithStreaming(question, context, sessionId, res);
         return;
       }
 
@@ -186,20 +163,44 @@ const processUserQueryWithStreaming = async (question: string, sessionId: string
         rewrittenQuery,
         docs
       );
-      console.log("relevantDocs", relevantDocs);
-      console.log("needsWebSearch", needsWebSearch);
+      console.log("Relevant documents:", relevantDocs, "Needs web search:", needsWebSearch);
 
       if (needsWebSearch) {
-        const webSearchQuery = await rewriteQuery(question, sessionId, "WEB_SEARCH");
-        const webResult = await searchWeb(webSearchQuery);
-        console.log("webSearchQuery", webSearchQuery);
-        console.log("webResult", webResult);
+        const movieSummaries = relevantDocs
+          .map(doc => `${doc.metadata.name} (${doc.metadata.release_year} - ${doc.metadata.country})`);
+          
+        console.log("Document summary for web search:", movieSummaries);
 
-        const allDocs = [...relevantDocs];
-        if (webResult) {
-          allDocs.push(webResult);
-        }
-        console.log("allDocs", allDocs);
+        const movieQueries = movieSummaries.map(async (movieSummary) => {
+          const movieQuery = await rewriteQuery(
+            question,
+            sessionId,
+            "context_search",
+            movieSummary
+          );
+
+          console.log(`Web search query for ${movieSummary}:`, movieQuery);
+
+          const result = await searchWeb(movieQuery);
+
+          if (result) {
+            result.metadata = { ...result.metadata, movie_summary: movieSummary };
+            return result;
+          }
+          return null;
+
+        });
+
+        const results = await Promise.allSettled(movieQueries);
+
+        const webResults: Document[] = results
+          .filter((result): result is PromiseFulfilledResult<Document | null> =>
+            result.status === 'fulfilled' && result.value !== null)
+          .map(result => result.value as Document);
+
+        console.log(`Found web results for ${webResults.length} movies`);
+
+        const allDocs = [...relevantDocs, ...webResults];
 
         if (allDocs.length > 0) {
           context = allDocs.map((doc) => doc.pageContent).join("\n\n---\n\n");
@@ -210,55 +211,18 @@ const processUserQueryWithStreaming = async (question: string, sessionId: string
         }
       }
 
-      await generateAnswerWithStreaming(rewrittenQuery, context, sessionId, res);
+      await generateAnswerWithStreaming(question, context, sessionId, res);
+    }
+    else if (queryType === "web_context") {
+      const webSearchQuery = await rewriteQuery(question, sessionId, "web_search");
+      console.log("Web search query:", webSearchQuery);
+      const webResult = await searchWeb(webSearchQuery);
+      console.log("Web search result:", webResult);
 
-    } else if (queryType === "person_info") {
       let context = "";
-      const personName = await extractPersonName(question, sessionId);
-      let personSummary = "";
 
-      if (personName) {
-        personSummary = await getPersonSummary(personName);
-      }
-      console.log("personSummary", personSummary);
-
-      if (!personSummary) {
-        const webSearchQuery = await rewriteQuery(question, sessionId, "WEB_SEARCH");
-        const webResult = await searchWeb(webSearchQuery);
-
-        if (webResult) {
-          context = webResult.pageContent;
-        }
-
-        await generateAnswerWithStreaming(question, context, sessionId, res);
-        return;
-      }
-
-      const personDoc = { pageContent: personSummary, metadata: {} } as Document;
-      const { relevantDocs, needsWebSearch } = await evaluateDocuments(
-        question,
-        [personDoc]
-      );
-      console.log("relevantDocs", relevantDocs);
-      console.log("needsWebSearch", needsWebSearch);
-
-      if (needsWebSearch) {
-        const webSearchQuery = await rewriteQuery(question, sessionId, "WEB_SEARCH");
-        const webResult = await searchWeb(webSearchQuery);
-
-        const allDocs = [...relevantDocs];
-        if (webResult) {
-          allDocs.push(webResult);
-        }
-
-        if (allDocs.length > 0) {
-          context = allDocs.map((doc) => doc.pageContent).join("\n\n---\n\n");
-        }
-      }
-      else {
-        if (relevantDocs.length > 0) {
-          context = relevantDocs.map((doc) => doc.pageContent).join("\n\n---\n\n");
-        }
+      if (webResult) {
+        context = webResult.pageContent;
       }
 
       await generateAnswerWithStreaming(question, context, sessionId, res);

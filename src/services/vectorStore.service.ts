@@ -44,7 +44,7 @@ const createSelfQueryRetriever = async () => {
       attributeInfo: MovieAttribute,
       structuredQueryTranslator: new PineconeTranslator(),
       searchParams: {
-        k: 5,
+        k: 4,
       },
     });
 
@@ -54,7 +54,7 @@ const createSelfQueryRetriever = async () => {
   }
 };
 
-const searchSimilarMovies = async (query: string, limit: number = 5) => {
+const searchSimilarMovies = async (query: string, limit: number = 4) => {
   try {
     if (!vectorStoreForSemanticSimilarity) {
       vectorStoreForSemanticSimilarity = await initVectorStore(initRetrievalQueryEmbedding);

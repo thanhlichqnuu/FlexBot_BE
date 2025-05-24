@@ -3,6 +3,7 @@ interface UserPayload {
     name: string;
     email: string;
     role: string;
+    subscription: string;
     iat: number;
     exp: number;
 }

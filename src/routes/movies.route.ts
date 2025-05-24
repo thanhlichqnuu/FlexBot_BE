@@ -12,7 +12,7 @@ const initMoviesRoutes = (app: Application) => {
   router.post(
     "/sync",
     authenticateAccessToken,
-    authorizeRoles("admin"),
+    authorizeRoles(["admin"]),
     syncMoviesController
   );
   return app.use("/api/v1/movies", router);

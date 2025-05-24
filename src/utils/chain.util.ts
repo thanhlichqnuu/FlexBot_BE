@@ -4,7 +4,6 @@ import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import {
   routePrompt,
   reWriteQueryPrompt,
-  extractPersonNamePrompt,
   documentEvaluatorPrompt,
   generateAnswerPrompt,
 } from "./prompt.util";
@@ -20,14 +19,6 @@ const createClassificationChain = (llm: ChatGoogleGenerativeAI) => {
 const createRewriteQueryChain = (llm: ChatGoogleGenerativeAI) => {
   return RunnableSequence.from([
     reWriteQueryPrompt,
-    llm,
-    new StringOutputParser()
-  ]);
-};
-
-const createExtractPersonNameChain = (llm: ChatGoogleGenerativeAI) => {
-  return RunnableSequence.from([
-    extractPersonNamePrompt,
     llm,
     new StringOutputParser()
   ]);
@@ -52,7 +43,6 @@ const createStreamingAnswerChain = (llm: ChatGoogleGenerativeAI) => {
 export {
   createClassificationChain,
   createRewriteQueryChain,
-  createExtractPersonNameChain,
   createDocumentEvaluatorChain,
   createStreamingAnswerChain
 };

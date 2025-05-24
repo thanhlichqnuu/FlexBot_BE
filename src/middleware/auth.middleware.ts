@@ -26,11 +26,15 @@ const authenticateAccessToken = async (req: RequestWithUser, res: Response, next
   }
 };
 
-const authorizeRoles = (...roles: string[]) => {
+const authorizeRoles = (roles: string[] = [], subscriptions?: string[]) => {
   return (req: RequestWithUser, res: Response, next: NextFunction) => {
-    if (req.user && !roles.includes(req.user.role)) {
+    const hasValidRole = req?.user?.role && roles.includes(req.user.role);
+    const hasValidSubscription = subscriptions &&
+      (req?.user?.subscription && subscriptions.includes(req.user.subscription));
+
+    if (!(hasValidRole && hasValidSubscription)) {
       errorResponse(res, 403, "Forbidden", "You do not have permission to access this resource!");
-      return
+      return;
     }
 
     next();
